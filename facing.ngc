@@ -1,0 +1,57 @@
+;Facing
+O<facing> sub
+
+;#1 = [${face.x-f}]
+;#2 = [${face.sf-f}]
+;#3 = [${face.cut-f}]
+;#4 = [${face.feed-f}]
+;#5 = [${face.z-f}]
+;#6 = [${face.angle-s}]
+;#7 = [${face.tool-s}] 
+
+#<inner_diameter> = #1
+#<surface_speed>  = #2
+#<depth_of_cut>   = #3
+#<feed>           = #4
+#<end_z>          = #5
+#<face_angle>     = #6
+#<tool>           = #7
+
+G7 ; Lathe Diameter Mode
+G18 ; XZ Plane
+;G21 ; Metric Units
+G90 ; Absolute Distance
+
+G40
+M6 T#<tool> G43
+
+#<start_x>   = [#<_x> * 2] (starting X)
+#<current_z> = #<_z> (starting Z)
+
+#<z_offset_angle> = [0.5*[#<start_x> - #<inner_diameter>]*tan[#<face_angle>]]
+
+;G96 D2500 S#<surface_speed> ; Constant Surface Speed Mode
+G96 D500 S#<surface_speed> ; Constant Surface Speed Mode
+M3
+g95 F#<feed> ; Feed-Per-Rev Mode
+
+g4p1 ; Wait to reach speed
+
+	O200 WHILE [#<current_z> GT #<end_z> + #<depth_of_cut>]
+	
+	#<current_z>=[#<current_z>-#<depth_of_cut>]
+	G1 Z#<current_z>
+	G1 X#<inner_diameter> Z[#<current_z>+#<z_offset_angle>]
+	G0 Z[#<current_z>+#<z_offset_angle>+#<depth_of_cut>]
+	G0 X#<start_x> Z[#<current_z>+#<depth_of_cut>]
+	G0 Z#<current_z>
+	O200 ENDWHILE
+	
+	G1 Z#<end_z>
+	G1 X#<inner_diameter> Z[#<end_z>+#<z_offset_angle>]
+	G0 Z[#<end_z>+#<z_offset_angle>+#<depth_of_cut>]
+	G0 X#<start_x> Z[#<end_z>+#<depth_of_cut>]
+	G0 Z#<end_z> ; For touch-off
+    M5
+O<facing> endsub
+M2

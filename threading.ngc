@@ -1,0 +1,88 @@
+;threading
+; #1=thread.x, #2=thread.sf, #3=thread.tool-s, #4=thread.pitch-f, #5=thread.z-f, #6=thread.internal #7=thread.external
+
+O<threading> sub
+
+M73 ; save current state, restore on exit
+
+G8 ; Lathe radius Mode
+G18 ; XZ Plane
+G90 ; Absolute Distance
+
+
+M6 T#3 G43
+
+#<nominal_radius> = [#1 / 2.0]
+
+#<start_z> = #<_z> (starting Z)
+#<pitch> = #4
+#<end_z> = #5
+
+G96 D2500 S#2 ; Constant Surface Speed Mode
+M3
+g4p1 ; Wait to reach speed
+
+	#<height> = [0.86603 * #<pitch>]
+	#<majorflat> = [#<height> * 0.125]
+	#<minorflat> = [#<height> * 0.250]
+	#<threaddepth> = [#<height> * 0.625]
+	;(debug, #<pitch> #<majorflat> #<minorflat> #<threaddepth>)
+
+
+	O51 IF [#<_metric>]
+		#<cutdepth> = 0.2
+		#<flatfeed> = 0.1
+
+	O51 ELSE
+		#<cutdepth> = 0.007
+		#<flatfeed> = 0.004
+
+	O51 ENDIF
+
+
+	g95 F#<flatfeed> ; Feed-Per-Rev Mode
+
+
+	;Threading
+        O52 IF [#6 GT 0.5] ;internal
+		;cut the minor flat diameter
+		#<measure_dia> = [#<nominal_radius>  + #<minorflat> - #<height>]
+		#<measure_dia> = [ 2.0 * #<measure_dia>]
+		(debug, MEASURE #<measure_dia> - 0.10/0.16 for A60/AG60)
+        ;(debug, INTERNAL Threading thread dia-#<nominal_radius> start-#<start_z> finish-#<end_z> Pitch-#<pitch> Depth-#3)
+		G0 Z #<start_z>
+		G0 X [#<nominal_radius>  + #<minorflat> - #<height>]
+		G1 Z #<end_z>
+		G0 X [#<nominal_radius> - #<height>]
+		G0 Z #<start_z>
+
+		G96 D600 S#2 ; limit RPM in threading mode
+
+ 		g76 p#<pitch> z#<end_z> i#<minorflat> j#<cutdepth> k#<threaddepth> h3 r1.5 q29.5 e0 l0
+		
+        O52 ELSE ;external
+		; cut the major diameter
+		#<measure_dia> = [#<nominal_radius> - #<majorflat>]
+		#<measure_dia> = [ 2.0 * #<measure_dia>]
+		(debug, MEASURE [#<measure_dia> + 0.1] for A60 [#<measure_dia> + 0.16] for AG60)
+        ;(debug, EXTERNAL Threading thread dia-#<nominal_radius> start-#<start_z> finish-#<end_z> Pitch-#<pitch> Depth-#3 MF #<majorflat>)
+		G0 Z #<start_z>
+		G0 X #<nominal_radius>
+		G1 X [#<nominal_radius> - #<majorflat>]
+		G1 Z #<end_z>
+		G0 X #<nominal_radius>
+		G0 Z #<start_z>
+
+		G96 D600 S#2 ; limit RPM in threading mode
+
+ 		g76 p#<pitch> z#<end_z> i[-#<majorflat>] j#<cutdepth> k#<threaddepth> h3 r1.5 q29.5 e0 l0
+		
+        O52 ENDIF
+
+	G0 Z #<start_z>
+	m5
+
+O<threading> endsub
+
+
+M2

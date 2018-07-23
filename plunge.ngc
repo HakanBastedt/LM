@@ -1,0 +1,39 @@
+;Plunge like parting or grooveing
+O<plunge> sub
+
+;#1 = plunge.zdepth
+;#2 = plunge.idia
+;#3 = plunge.feed
+;#4 = plunge.sf
+;#5 = plunge.tool
+
+#<z_pos>          = #1
+#<inner_diameter> = #2
+#<feed>           = #3
+#<surface_speed>  = #4
+#<tool>           = #5
+
+G7 ; Lathe Diameter Mode
+G18 ; XZ Plane
+;G21 ; Metric Units
+G90 ; Absolute Distance
+
+M6 T#<tool> G43
+G40
+
+#<start_x> = #<_x> (starting X)
+#<start_z> = #<_z> (starting Z)
+
+G96 D2500 S#<surface_speed> ; Constant Surface Speed Mode
+M3
+g95 F#<feed> ; Feed-Per-Rev Mode
+
+g4p1 ; Wait to reach speed
+
+;     G0 Z#<z_pos>
+     G1 X#<inner_diameter>    
+     G0 X#<start_x>
+;     G0 Z#<start_z> ; For touch-off
+M5
+O<plunge> endsub
+M2

@@ -1,0 +1,53 @@
+O<tapping> sub
+
+M73     ; save state, restore on exit
+
+G7      ; diameter mode
+G17     ; XY Plane
+;G21    ; Metric Units don't change units!
+G90     ; Absolute Distance
+
+; #1 zdepth
+; #2 feed
+; #3 rpm
+; #4 tool number
+; #5 pecking depth, 0 = full stroke
+
+#<endz>   = #1
+#<feed>   = #2
+#<rpm>    = #3
+#<tool>   = #4
+#<peck>   = #5
+#<startz> = #<_z>
+
+M6 T#<tool> G43
+
+G97        ; Constant RPM mode
+M3 S#<rpm> ; Start Spindle with rpm
+
+g4p1       ; Wait to reach speed
+
+	   (debug, Tapping zdepth #1 feed #2 rpm #3 tool #4 peck #5 Starting Z #<startz>)
+           ; Don't really have to drill at X0, or?
+
+#<currentz> = #<startz>
+o100 do
+    #<currentz> = [#<currentz> - #<peck>]
+
+    o101 if [#<currentz> LT #<endz>]
+        #<currentz> = #<endz>
+    o101 endif
+    o102 if [#<peck> EQ 0.0]
+        #<currentz> = #<endz>
+    o102 endif
+	
+    G33.1 Z#<currentz> K#<feed>
+    G0 Z#<startz>
+    
+o100 while [#<currentz> GT #<endz>]
+
+M5
+
+O<tapping> endsub
+
+M2

@@ -1,0 +1,100 @@
+;boring
+
+O<boring> sub
+
+;#1= [${bore.x-f}]
+;#2= [${bore.sf-f}]
+;#3= [${bore.cut-f}]
+;#4= [${bore.feed-f}]
+;#5= [${bore.z-f}]
+;#6= [${bore.rad-f}]
+;#7= [${bore.angle-f}]
+;#8= [${bore.tool-s}]
+;#9= [${bore.nr-f}]
+
+#<diameter>      = #1
+#<surface_speed> = #2
+#<depth_of_cut>  = #3
+#<feed>          = #4
+#<end_z>         = #5
+#<radius>        = #6
+#<angle>         = #7
+#<tool>          = #8
+#<nose_radius>   = #9
+
+G8                                    ; Radius mode (easier maths)
+G18                                   ; XZ Plane
+;G21                                  ; Metric Units don't change units!
+G90                                   ; Absolute Distance
+G91.1                                 ; but not for arcs
+
+G40                                   ; Cancel compensation
+M6 T#<tool>                           ; Load tool
+#<tool_nose_radius> = [#5410 / 2.0]   ; Remember them and set back at the end
+#<tool_orientation> = #5413
+o5 if [#<nose_radius> GT 0.0 ]
+   G10 L1 P#<tool> R#<nose_radius> Q9 ; Set new nose radius/diameter
+o5 endif
+M6 T#<tool>                           ; Load tool with possibly new values
+G43                                   ; Tool compensate
+G40                                   ;                 off
+
+#<half_diameter> = [#<diameter> / 2]  ; because of radius mode
+
+#<current_x> = [#<_x>] (starting X)
+#<start_z>   = #<_z> (starting Z)
+
+o10 if [#6 GT #<nose_radius>]         ; Compensate real radius for nose radius.
+       #<radius> = [#<radius> - #<nose_radius>]
+o10 else
+       #<radius> = 0
+o10 endif
+
+#<radius_z_start_dist> = [#<radius> * SIN[#<angle>]]
+#<radius_x_start_dist> = [-#<radius> * COS[#<angle>]]
+#<radius_z_start> = [#<end_z> + #<radius> - #<radius_z_start_dist>]
+#<x_angle_addition> = [[#<radius_z_start> - #<start_z>] * TAN[#<angle>]]
+
+
+G96 D500 S#<surface_speed>           ; Constant Surface Speed Mode
+m3                                    ; Start Spindle
+g95 F#<feed>                          ; Feed-Per-Rev Mode
+
+g4p1 ; Wait to reach speed
+
+(debug, Turning finish dia #<half_diameter> start  dia #<current_x> start length #<start_z> finish length #<end_z>)
+O100 WHILE [#<current_x> LT [#<half_diameter> - #<depth_of_cut>]]
+        g0 X #<current_x>
+	#<current_x>=[#<current_x> + #<depth_of_cut>]
+	G1 X #<current_x>
+	G1 Z #<radius_z_start> X[#<current_x> + #<x_angle_addition>]
+        O101 IF [#<radius> GT 0]
+                G3 Z#<end_z> X[#<current_x> + #<x_angle_addition> + #<radius_x_start_dist>] I#<radius_x_start_dist> K#<radius_z_start_dist>
+		G1 X[#<current_x> + #<x_angle_addition> + #<radius_x_start_dist> - #<depth_of_cut>]
+        O101 ELSE
+	        G1 X[#<current_x> + #<x_angle_addition> - [#<depth_of_cut> * 1.5]]
+        O101 ENDIF
+	G0 Z#<start_z>
+O100 ENDWHILE
+
+G0 x#<half_diameter>
+G1 Z #<radius_z_start> X[#<half_diameter> + #<x_angle_addition>]
+O102 IF [#<radius> GT 0]
+        G3 Z#<end_z> X[#<half_diameter> + #<x_angle_addition> + #<radius_x_start_dist>] I#<radius_x_start_dist> K#<radius_z_start_dist>
+	G1 X[#<half_diameter> + #<x_angle_addition> + #<radius_x_start_dist> - #<depth_of_cut>]
+O102 ELSE
+        G1 X[#<half_diameter> + #<x_angle_addition> - #<depth_of_cut>]
+O102 ENDIF
+
+G0 Z#<start_z>
+G0 X#<half_diameter>                  ; For touch-off
+
+G40
+G10 L1 P#<tool> R#<tool_nose_radius> Q#<tool_orientation>
+M6 T#<tool>
+
+M5
+G7
+O<boring> endsub
+
+M2
