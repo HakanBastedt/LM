@@ -64,6 +64,8 @@ O2 ENDIF
 #<Z2N> = [#<Z2A> - #<Dz>]
 #<X3N> = [#<X3A> - 2*#<nose_radius>]
 #<Z3N> = #<end_z>
+#<X4N> = [#<X3N> + 2*#<depth_of_cut>]
+#<Z4N> = #<end_z>
 #<G2IN> = [[#<radius>-#<nose_radius>]*cos[#<angle>]]
 #<G2KN> = [[#<radius>-#<nose_radius>]*sin[#<angle>]]
 ;(DEBUG, X0N=#<X0N> Z0N=#<Z0N> X1N=#<X1N> Z1N=#<Z1N> X2N=#<X2N> Z2N=#<Z2N> X3N=#<X3N> Z3N=#<Z3N> G2IN=#<G2IN> G2KN=#<G2KN>)
@@ -83,7 +85,7 @@ O100 WHILE [#<diff_x> GT 0]
     O101 IF [#<radius> GT 0]
         G2 X[#<X3N> + #<diff_x>] Z#<Z3N> I#<G2IN> K#<G2KN>	    
     O101 ENDIF
-    G1 X[#<X3N> + 2*#<diff_x> + 2*#<depth_of_cut>]
+    G1 X[#<X4N> + #<diff_x>] Z#<Z4N>              ; Point 4
     O102 IF [#<angle> LT 0]
         G0 X[#<X1N> + 5*#<depth_of_cut>] Z#<Z1N>  ; Avoid gouging
     O102 ENDIF
@@ -98,7 +100,7 @@ G1 X#<X2N> Z#<Z2N>                            ; Point 2
 O201 IF [#<radius> GT 0]
     G2 X#<X3N> Z#<Z3N> I#<G2IN> K#<G2KN>	    
 O201 ENDIF
-G1 X[#<X3N> + 2*#<depth_of_cut>]
+G1 X#<X4N> Z#<Z4N>                            ; Point 4
 O202 IF [#<angle> LT 0]
     G0 X[#<X1N> + 5*#<depth_of_cut>] Z#<Z1N>  ; Avoid gouging
 O202 ENDIF
