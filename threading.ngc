@@ -1,88 +1,98 @@
-;threading
-; #1=thread.x, #2=thread.sf, #3=thread.tool-s, #4=thread.pitch-f, #5=thread.z-f, #6=thread.internal #7=thread.external
-
 O<threading> sub
 
 M73 ; save current state, restore on exit
 
-G8 ; Lathe radius Mode
+#<Dnom>          = #1
+#<surface_speed> = #2
+#<tool>          = #3
+#<pitch>         = #4
+#<end_z>         = #5
+#<maxrpm>        = #6
+#<nose_radius>   = #7
+#<thr_internal>  = #8
+#<thr_external>  = #9
+#<threadflag>    = #10
+#<nominal_radius> = [#<Dnom> / 2.0]
+#<start_z> = #<_z> (starting Z)
+
+
+#<height> = [0.86603 * #<pitch>]
+#<majorflat> = [#<height> * 0.125]
+#<minorflat> = [#<height> * 0.250]
+#<threaddepth> = [#<height> * 0.625]
+;(debug, #<pitch> #<majorflat> #<minorflat> #<threaddepth>)
+
+#<H>    = [sqrt[3]/2*#<pitch>]   ; Thread profile height 
+#<Dmaj> = [#<Dnom> - 2*#<H>/8]   ; Major diameter
+#<Dmin> = [#<Dnom> - 2*3*#<H>/4] ; Minor diameter
+#<Dp>   = [#<Dnom> - #<H>]       ; Pitch diameter
+#<P>    = #<pitch>               ; Pitch                 
+#<NR>   = #<nose_radius>         ; Nose radius of insert 
+#<StartZ>=#<_z>                  ; Start Z of driveline  
+
 G18 ; XZ Plane
 G90 ; Absolute Distance
+G64 P0.01
 
+M6 T#<tool> G43
 
-M6 T#3 G43
-
-#<nominal_radius> = [#1 / 2.0]
-
-#<start_z> = #<_z> (starting Z)
-#<pitch> = #4
-#<end_z> = #5
-
-G96 D2500 S#2 ; Constant Surface Speed Mode
+G96 D#<maxrpm> S#<surface_speed> ; Constant Surface Speed Mode
 M3
-g4p1 ; Wait to reach speed
 
-	#<height> = [0.86603 * #<pitch>]
-	#<majorflat> = [#<height> * 0.125]
-	#<minorflat> = [#<height> * 0.250]
-	#<threaddepth> = [#<height> * 0.625]
-	;(debug, #<pitch> #<majorflat> #<minorflat> #<threaddepth>)
+O51 IF [#<_metric>]
+	#<cutdepth> = 0.1
+	#<flatfeed> = 0.1
+O51 ELSE
+	#<cutdepth> = 0.007
+	#<flatfeed> = 0.004
+O51 ENDIF
+g95 F#<flatfeed>   ; Feed-Per-Rev Mode
 
+O300 IF [ #<threadflag> EQ 0]      ; Major/minor diameter cut
 
-	O51 IF [#<_metric>]
-		#<cutdepth> = 0.2
-		#<flatfeed> = 0.1
-
-	O51 ELSE
-		#<cutdepth> = 0.007
-		#<flatfeed> = 0.004
-
-	O51 ENDIF
-
-
-	g95 F#<flatfeed> ; Feed-Per-Rev Mode
-
-
-	;Threading
-        O52 IF [#6 GT 0.5] ;internal
-		;cut the minor flat diameter
-		#<measure_dia> = [#<nominal_radius>  + #<minorflat> - #<height>]
-		#<measure_dia> = [ 2.0 * #<measure_dia>]
-		(debug, MEASURE #<measure_dia> - 0.10/0.16 for A60/AG60)
-        ;(debug, INTERNAL Threading thread dia-#<nominal_radius> start-#<start_z> finish-#<end_z> Pitch-#<pitch> Depth-#3)
-		G0 Z #<start_z>
-		G0 X [#<nominal_radius>  + #<minorflat> - #<height>]
-		G1 Z #<end_z>
-		G0 X [#<nominal_radius> - #<height>]
-		G0 Z #<start_z>
-
-		G96 D600 S#2 ; limit RPM in threading mode
-
- 		g76 p#<pitch> z#<end_z> i#<minorflat> j#<cutdepth> k#<threaddepth> h3 r1.5 q29.5 e0 l0
-		
-        O52 ELSE ;external
-		; cut the major diameter
-		#<measure_dia> = [#<nominal_radius> - #<majorflat>]
-		#<measure_dia> = [ 2.0 * #<measure_dia>]
-		(debug, MEASURE [#<measure_dia> + 0.1] for A60 [#<measure_dia> + 0.16] for AG60)
-        ;(debug, EXTERNAL Threading thread dia-#<nominal_radius> start-#<start_z> finish-#<end_z> Pitch-#<pitch> Depth-#3 MF #<majorflat>)
-		G0 Z #<start_z>
-		G0 X #<nominal_radius>
-		G1 X [#<nominal_radius> - #<majorflat>]
-		G1 Z #<end_z>
-		G0 X #<nominal_radius>
-		G0 Z #<start_z>
-
-		G96 D600 S#2 ; limit RPM in threading mode
-
- 		g76 p#<pitch> z#<end_z> i[-#<majorflat>] j#<cutdepth> k#<threaddepth> h3 r1.5 q29.5 e0 l0
-		
-        O52 ENDIF
-
+   O52 IF [#<thr_internal> GT 0.5] ; internal
+	; cut the minor diameter
+	G0 X [#<Dnom> - 2*#<H>] Z #<start_z>
+	G1 X #<Dmin>
+	G1 Z #<end_z>
+	G1 X [#<Dnom> - 2*#<H>]
 	G0 Z #<start_z>
-	m5
+	G0 X #<Dmin>     ; Stop for adjustment
+
+   O52 ELSEIF [#<thr_external> GT 0.5 ] ; external
+	; cut the major diameter
+	G0 X #<Dnom> Z #<start_z>
+	G1 X #<Dmaj>
+	G1 Z #<end_z>
+	G1 X #<Dnom>
+	G0 Z #<start_z>
+	G0 X #<Dmaj>     ; Stop for adjustment
+
+    O52 ENDIF
+
+O300 ELSEIF [#<threadflag> EQ 1]               ; Do the thread
+
+   G96 D#<maxrpm> S#<surface_speed>            ; limit RPM in threading mode
+
+   O53 IF [#<thr_internal> GT 0.5]             ; internal
+       G0 X[#<Dp> - #<H> - 2*#<NR>] Z#<StartZ> ; Start of driveline    
+      G76 I[2*#<H>/4] J#<cutdepth> K[2*6/8*#<H>] Q29.2 R1.5 H3 E0 L0 P#<P> Z#<end_z>
+      G0 Z#<StartZ>                            ; Back to start Z, to be able to restart properly
+
+   O53 ELSEIF [#<thr_external> GT 0.5 ]        ; external
+      G7
+      G0 X[#<Dp> + #<H> + 2*#<NR>] Z#<StartZ>  ; Start of driveline    
+      G76 I[-2*#<H>/8] J#<cutdepth> K[2*7/8*#<H>] Q29.2 R1.5 H3 E0 L0 P#<P> Z#<end_z>
+      G0 Z#<StartZ>                            ; Back to start Z, to be able to restart properly
+   O53 ENDIF
+
+O300 ELSE
+     (debug, Wrong threadflag=#<threadflag>)
+O300 ENDIF
+
+G0 Z #<start_z>
+m5
 
 O<threading> endsub
-
 
 M2

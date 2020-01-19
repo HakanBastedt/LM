@@ -1,57 +1,101 @@
-;Facing
+
+;[${face.x-f}]
+;[${face.sf-f}]
+;[${face.cut-f}]
+;[${face.feed-f}]
+;[${face.z-f}]
+;[${face.angle-s}]
+;[${face.tool-s}]
+;[${face.maxrpm-f}]
+;[${face.nr-f}]
+
+;Facing in diameter mode
+
 O<facing> sub
 
-;#1 = [${face.x-f}]
-;#2 = [${face.sf-f}]
-;#3 = [${face.cut-f}]
-;#4 = [${face.feed-f}]
-;#5 = [${face.z-f}]
-;#6 = [${face.angle-s}]
-;#7 = [${face.tool-s}] 
+#<diameter>      = #1
+#<surface_speed> = #2
+#<depth_of_cut>  = #3
+#<feed>          = #4
+#<end_z>         = #5
+#<angle>         = #6
+#<tool>          = #7
+#<maxrpm>        = #8
+#<nose_radius>   = #9
+;(DEBUG, 1=#1 2=#2 3=#3 4=#4 5=#5 6=#6 7=#7 8=#8 9=#9)
 
-#<inner_diameter> = #1
-#<surface_speed>  = #2
-#<depth_of_cut>   = #3
-#<feed>           = #4
-#<end_z>          = #5
-#<face_angle>     = #6
-#<tool>           = #7
+G7                                     ; Diameter mode
+G18                                    ; XZ Plane
+G90                                    ; Absolute Distance
+G91.1                                  ; Incremental arc distance mode, for I K
 
-G7 ; Lathe Diameter Mode
-G18 ; XZ Plane
-;G21 ; Metric Units
-G90 ; Absolute Distance
+G40                                    ; Cancel compensation
+M6 T#<tool>                            ; Load tool with possibly new values
+G43                                    ; Tool compensate
 
-G40
-M6 T#<tool> G43
+#<start_x> = [2*#<_x>]                 ; Starting X
+#<start_z> = #<_z>                     ; Starting Z
 
-#<start_x>   = [#<_x> * 2] (starting X)
-#<current_z> = #<_z> (starting Z)
+; Final coordinates without nose radius but with angle.
+#<X0A> = #<start_x>
+#<Z0A> = #<end_z>
+#<X1A> = #<start_x>
+#<Z1A> = #<end_z>
+#<X2A> = #<diameter>
+#<Z2A> = [#<end_z> + [#<start_x> - #<diameter>]/2.0*tan[#<angle>]]
+;(DEBUG, X0A=#<X0A> Z0A=#<Z0A> X1A=#<X1A> Z1A=#<Z1A> X2A=#<X2A> Z2A=#<Z2A>)
 
-#<z_offset_angle> = [0.5*[#<start_x> - #<inner_diameter>]*tan[#<face_angle>]]
+; Offset from a square tool to the contactpoint on a round tool.
+#<Dx> = [2*#<nose_radius>*[1-sin[#<angle>]]]
+#<Dz> = [#<nose_radius>*[1-tan[#<angle>/2]]*tan[#<angle>]]
+;(DEBUG, Dx=#<Dx>  Dz=#<Dz>)
 
-;G96 D2500 S#<surface_speed> ; Constant Surface Speed Mode
-G96 D500 S#<surface_speed> ; Constant Surface Speed Mode
-M3
-g95 F#<feed> ; Feed-Per-Rev Mode
+; Coordinates with nose radius and straight part with angle.
+#<X0N> = #<X0A>
+#<Z0N> = [#<Z0A> - #<Dz>]
+#<X1N> = #<X1A>
+#<Z1N> = [#<Z1A> - #<Dz>] 
+#<X2N> = #<X2A>
+#<Z2N> = [#<Z2A> - #<Dz>]
+#<X3N> = #<X2N>
+#<Z3N> = [#<Z2N> + #<depth_of_cut>]
+;(DEBUG, X0N=#<X0N> Z0N=#<Z0N> X1N=#<X1N> Z1N=#<Z1N> X2N=#<X2N> Z2N=#<Z2N> X3N=#<X3N> Z3N=#<Z3N>)
 
-g4p1 ; Wait to reach speed
+G96 D#<maxrpm> S#<surface_speed>      ; Constant Surface Speed Mode
+m3                                    ; Start Spindle
+g95                                   ; Feed-Per-Rev Mode
+G1 F#<feed>
+G64 P0.01
 
-	O200 WHILE [#<current_z> GT #<end_z> + #<depth_of_cut>]
-	
-	#<current_z>=[#<current_z>-#<depth_of_cut>]
-	G1 Z#<current_z>
-	G1 X#<inner_diameter> Z[#<current_z>+#<z_offset_angle>]
-	G0 Z[#<current_z>+#<z_offset_angle>+#<depth_of_cut>]
-	G0 X#<start_x> Z[#<current_z>+#<depth_of_cut>]
-	G0 Z#<current_z>
-	O200 ENDWHILE
-	
-	G1 Z#<end_z>
-	G1 X#<inner_diameter> Z[#<end_z>+#<z_offset_angle>]
-	G0 Z[#<end_z>+#<z_offset_angle>+#<depth_of_cut>]
-	G0 X#<start_x> Z[#<end_z>+#<depth_of_cut>]
-	G0 Z#<end_z> ; For touch-off
-    M5
+#<diff_z> = [#<start_z> - #<end_z> - #<depth_of_cut>]
+
+; Multple steps to come to dimension is here
+O100 WHILE [#<diff_z> GT 0]
+    G1 X#<X0N> Z[#<Z0N> + #<diff_z>]              ; Point 0
+    G1 X#<X1N> Z[#<Z1N> + #<diff_z>]              ; Point 1
+    G1 X#<X2N> Z[#<Z2N> + #<diff_z>]              ; Point 2
+    G1 Z[#<Z3N> + #<diff_z> + #<depth_of_cut>]
+    O102 IF [#<angle> LT 0]
+        G0 X#<X1N> Z[#<Z1N> + #<diff_z> + 5*#<depth_of_cut>]  ; Avoid gouging
+    O102 ENDIF
+    G0 X#<X0N> Z[#<Z0N> + #<diff_z> + 2*#<depth_of_cut>]
+    #<diff_z> = [#<diff_z> - #<depth_of_cut>]
+O100 ENDWHILE
+
+; Final cut or spring cut. Always do this part. 
+G1 X#<X0N> Z#<Z0N>                            ; Point 0
+G1 X#<X1N> Z#<Z1N>                            ; Point 1
+G1 X#<X2N> Z#<Z2N>                            ; Point 2
+G1 X[#<X3N> + #<depth_of_cut>]
+O202 IF [#<angle> LT 0]
+    G0 X#<X1N> Z[#<Z1N> + 5*#<depth_of_cut>]  ; Avoid gouging
+O202 ENDIF
+G0 X#<X0N> Z[#<Z0N> + 2*#<depth_of_cut>]
+
+G0 Z#<end_z>                                  ; For touch-off
+
+M5
+G7
 O<facing> endsub
 M2
+
