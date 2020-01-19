@@ -1,5 +1,3 @@
-;drill
-
 O<drill> sub
 
 M73 ; save state, restore on exit
@@ -16,6 +14,7 @@ G90 ; Absolute Distance
 ; #5 tool number
 ; #6 peck amount
 ; #7 peck retract amount - not used right now
+; #8 Max rpm
 #13 = #<_z> (starting Z)
 
 M6 T#5 G40
@@ -27,6 +26,10 @@ O51 ELSE
 	#10 = [[#3 * 12 / 3.1415] / #1]		; inch mode RPM
 	#11 = 0.05	; retract plane
 O51 ENDIF
+
+O300 IF [ #10 GT #8 ] ;  Max rpm
+    #10 = #8
+O300 ENDIF
 
 G97 S#10 ; Constant RPM mode
 m3 ;Start Spindle

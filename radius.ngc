@@ -1,84 +1,58 @@
-;radius
+o<radius> sub
 
-O<radius> sub
+#<diameter>      = #1
+#<surface_speed> = #2
+#<nose_radius>   = #3
+#<maxrpm>        = #4
+#<z>             = #5
+#<tool>          = #6
+#<radius>        = #7
+#<feed>          = #8
+#<fo>            = #9
+#<fi>            = #10
+#<bo>            = #11
+;(DEBUG, 1=#1 2=#2 3=#3 4=#4 5=#5 6=#6 7=#7 8=#8 9=#9 10=#10 11=#11)
 
-G8 ; Lathe radius Mode
-G18 ; XZ Plane
-;G21 ; Metric Units
-G90 ; Absolute Distance
+#<start_x> = [2*#<_x>]
+#<start_z> = #<_z>
+#<small_distance> = [5 * #<feed>]
+G64 P0.01
+G7                                     ; Diameter mode
+G18                                    ; XZ Plane
+G90                                    ; Absolute Distance
+G91.1                                  ; Incremental arc distance mode, for I K
 
-;#1= [${radius.x-f}]
-;#2= [${radius.sf-f}]
-;#3= [${radius.nr-f}]
-;#4= [0]
-;#5= [${radius.z-f}]
-;#6= [${radius.tool-s}]
-;#7= [0]
-;#8= [${radius.rad-f}]
-;#9= [${radius.fo}]
-;#10=[${radius.fi}]
-;#11=[${radius.bo}]
+G40                                    ; Cancel compensation
+M6 T#<tool>                            ; Load tool with possibly new values
+G43                                    ; Tool compensate
+G96 D#<maxrpm> S#<surface_speed>      ; Constant Surface Speed Mode
+m3                                    ; Start Spindle
+g95                                   ; Feed-Per-Rev Mode
+F#<feed>
+O100 IF [#<fo> GT 0.9] ; Front outer radius
+    G0 X[#<diameter> - 2*#<radius> - 2*#<nose_radius>] Z[#<z> + #<small_distance>]
+    G1 Z[#<z>]
+    G3 X[#<diameter>] Z[#<z> - #<radius> - #<nose_radius>] I0 K-[#<radius> + #<nose_radius>]
+    G1 X[#<diameter> + 2*#<small_distance>]
+    G0 Z#<z>
+O100 ELSEIF [#<fi> GT 0.9] ; Front inner radius
+    G0 X[#<diameter> + 2*#<radius> + 2*#<nose_radius>] Z[#<z> + #<small_distance>]
+    G1 Z[#<z>]
+    G2 X[#<diameter>] Z[#<z> - #<radius> - #<nose_radius>] I0 K-[#<radius> + #<nose_radius>]
+    G1 X[#<diameter> -2*#<small_distance>]
+    G0 Z#<z>
+O100 ELSEIF [#<bo> GT 0.9] ; Back outer radius
+    G0 X[#<diameter> + 2*#<small_distance>] Z[#<z> + #<radius> + #<nose_radius>]
+    G1 X[#<diameter>]
+    G3 X[#<diameter> - 2*#<radius> - 2*#<nose_radius>] Z#<z>  I-[#<radius> + #<nose_radius>]K0
+    G1 Z[#<z> - #<small_distance>]
+    G0 X#<diameter>
+O100 ELSE
+    (PRINT, No position selected.)
+O100 ENDIF
+G0 X[#<start_x>] Z#<start_z>
 
+M5
 
-
-M6 T#6 G43
-
-#1 = [#1 / 2] ; because of radius mode
-#14 = [#<_x>] (starting X)
-#13 = [#<_z>] (starting Z)
-
-G96 D2500 S#2 ; Constant Surface Speed Mode
-M3
-g95 F0.1 ; Feed-Per-Rev Mode
-
-#20 = 0
-O101 if [#9 GT 0.5] ; Front outside
-	o100 while [[#20 + #3] lt #8]
-	#20 = [#20 + #3]
-	g0 x[#1 - #20] z#13
-	g1 z#5
-	g3 x#1 z[#5 - #20] K[-#20]
-	g1 x #14
-	g0 z#13
-	o100 endwhile
-	g0 x#14 z#13
-	g0 x[#1 - #8]
-	g1 z#5
-	g3 x#1 z[#5 - #8] K[-#8]
-	g1 x #14
-	g0 z#13
-O101 elseif [#10 GT 0.5] ; front inside
-	o102 while [[#20 + #3] lt #8]
-	#20 = [#20 + #3]
-	g0 x[#1 + #20] z#13
-	g1 z#5
-	g2 x#1 z[#5 - #20] K[-#20]
-	g1 x #14
-	g0 z#13
-	o102 endwhile
-	g0 x#14 z#13
-	g0 x[#1 + #8]
-	g1 z#5
-	g2 x#1 z[#5 - #8] K[-#8]
-	g1 x #14
-	g0 z#13
-O101 elseif [#11 GT 0.5] ; back outside
-	o103 while [[#20 + #3] lt #8]
-	#20 = [#20 + #3]
-	g0 x[#1 - #20] z#13
-	g1 z#5
-	g2 x#1 z[#5 + #20] K#20
-	g1 x #14
-	g0 z#13
-	o103 endwhile
-	g0 x#14 z#13
-	g0 x[#1 - #8]
-	g1 z#5
-	g2 x#1 z[#5 + #8] K#8
-	g1 x #14
-	g0 z#13
-O101 endif
-G7
-O<radius> endsub
-m2
-%
+o<radius> endsub
+M2
