@@ -3,7 +3,7 @@ O<drill> sub
 M73 ; save state, restore on exit
 
 G7 ; diameter mode
-G17 ; XY Plane
+G17 ; XZ Plane
 ;G21 ; Metric Units don't change units!
 G90 ; Absolute Distance
 
