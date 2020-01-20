@@ -15,38 +15,46 @@ G90 ; Absolute Distance
 ; #6 peck amount
 ; #7 peck retract amount - not used right now
 ; #8 Max rpm
-#13 = #<_z> (starting Z)
+#<diameter> = #1
+#<z_depth>  = #2
+#<sf_speed> = #3
+#<feed>     = #4
+#<tool>     = #5
+#<peck>     = #6
+#<retract>  = #7  ; Not used for now
+#<not_used> = #8
+#<maxrpm>   = #9
 
-M6 T#5 G40
+#<start_z>  = #<_z> (starting Z)
 
-O51 IF [#<_metric>]
-	#10 = [[1000 * #3] / [3.1415 * #1]]	; metric mode RPM
-	#11 = 2	 	;retract plane
-O51 ELSE
-	#10 = [[#3 * 12 / 3.1415] / #1]		; inch mode RPM
-	#11 = 0.05	; retract plane
-O51 ENDIF
+M6 T#<tool> G40
 
-O300 IF [ #10 GT #8 ] ;  Max rpm
-    #10 = #8
+O100 IF [#<_metric>]
+    #<sf_rpm> = [[1000 * #<sf_speed>] / [3.1415 * #<diameter>]]  ; Rpm from surface speed
+O100 ELSE
+    #<sf_rpm> = [[#<sf_speed> * 12 / 3.1415] / #<diameter>]	
+O100 ENDIF
+
+O200 IF [ #<sf_rpm> GT #<maxrpm> ] ;  Max rpm
+    #<sf_rpm> = #<maxrpm>
+O200 ENDIF
+
+G97 S#<sf_rpm>    ; Constant RPM mode
+m3                ;Start Spindle
+g95 F#<feed>      ; Feed-Per-Rev Mode
+
+g4p1              ; Wait to reach speed
+
+;(debug, Drilling dia #1 depth #2 startz #13 speed #3 feed/rpm #4 tool #5 peck dist #6 rpm #10)
+G0 X0            ; must drill from the centerline.  Tool should be zeroed here
+G98
+O300 IF [#<peck> LE 0.0]
+    G81 Z#<z_depth> R#<start_z>           ; Drilling
+O300 ELSE
+    G83 Z#<z_depth> R#<start_z> Q#<peck>  ; Peck drilling
 O300 ENDIF
-
-G97 S#10 ; Constant RPM mode
-m3 ;Start Spindle
-g95 F#4 ; Feed-Per-Rev Mode
-
-g4p1 ; Wait to reach speed
-
-	(debug, Drilling dia #1 depth #2 startz #13 speed #3 feed/rpm #4 tool #5 peck dist #6 rpm #10)
-	G0 X0 ; must drill from the centerline.  Tool should be zeroed here
-	G00 Z #13
-	G98
-	G83 Z#2 R#13 Q#6
-	G80
-
-	G0 Z #13
-     M5
-	G7
+G80
+M5
 
 O<drill> endsub
 
