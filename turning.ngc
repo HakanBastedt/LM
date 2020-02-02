@@ -87,9 +87,9 @@ O100 WHILE [#<diff_x> GT 0]
     O101 ENDIF
     G1 X[#<X4N> + #<diff_x>] Z#<Z4N>              ; Point 4
     O102 IF [#<angle> LT 0]
-        G0 X[#<X1N> + 5*#<depth_of_cut>] Z#<Z1N>  ; Avoid gouging
+        G0 X[#<X1N> + #<diff_x> + 5*#<depth_of_cut>] Z#<Z1N>  ; Avoid gouging
     O102 ENDIF
-    G0 X[#<X0N> + 2*#<diff_x>] Z#<start_z>
+    G0 X[#<X0N> + #<diff_x> - 2*#<depth_of_cut>] Z#<start_z>
     #<diff_x> = [#<diff_x> - 2*#<depth_of_cut>]
 O100 ENDWHILE
 
